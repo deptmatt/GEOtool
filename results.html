@@ -1,0 +1,129 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>GEO Research Results</title>
+  <style>
+    body { font-family: Arial, sans-serif; margin: 2rem; background:#f5f5f5; }
+    .container { background:white; padding:2rem; border-radius:12px; max-width:900px; margin:auto; }
+    .section { margin-top:2rem; padding:1.5rem; border-radius:10px; background:#fafafa; border:1px solid #ddd; }
+    h2 { margin-top:0; }
+    .label { font-weight:bold; }
+    .value-box { background:#fff; padding:1rem; border-radius:8px; border:1px solid #ccc; }
+
+    @keyframes spin { 0% { transform: rotate(0deg);} 100% { transform: rotate(360deg);} }
+    .loader { border:6px solid #f3f3f3; border-top:6px solid #007bff; border-radius:50%; width:40px; height:40px; animation:spin 1s linear infinite; margin:auto; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>GEO Research Results</h1>
+
+    <div id="statusBox" style="padding:1rem; background:#eef7ff; border:1px solid #b5d4ff; border-radius:8px; margin-bottom:1.5rem; font-weight:bold; display:none;"></div>
+
+    <button id="exportBtn" style="padding:0.6rem 1.2rem; background:#444; color:white; border:none; border-radius:6px; cursor:pointer; margin-bottom:1.5rem; display:none;">Export Results to CSV</button>
+    <button id="runAgainBtn" style="padding:0.6rem 1.2rem; background:#6a0dad; color:white; border:none; border-radius:6px; cursor:pointer; margin-left:1rem; display:none;">Run Again</button>
+
+    <div id="spinner" style="display:none; text-align:center; margin-bottom:1rem;">
+      <div class="loader"></div>
+    </div>
+
+    <div class="section">
+      <h2>Submitted Inputs</h2>
+      <p><span class="label">Brand / Advertiser:</span></p>
+      <p class="value-box" id="brand"></p>
+      <p><span class="label">Query / Prompt:</span></p>
+      <p class="value-box" id="prompt"></p>
+    </div>
+
+    <div class="section">
+      <h2>Step 1: Multi-Engine Response Collection</h2>
+      <div id="engineSpinner" style="display:none; text-align:center; margin-bottom:1rem;"><div class="loader"></div></div>
+      <div class="value-box" id="engineResults">(Engine outputs will appear here)</div>
+    </div>
+
+    <div class="section">
+      <h2>Step 2: Competitive Analysis Extraction</h2>
+      <div id="compSpinner" style="display:none; text-align:center; margin-bottom:1rem;"><div class="loader"></div></div>
+      <div class="value-box" id="competitiveAnalysis">(Competitive insights will appear here)</div>
+    </div>
+
+    <div class="section">
+      <h2>Step 3: Social Mentions Deep Dive</h2>
+      <div id="socialSpinner" style="display:none; text-align:center; margin-bottom:1rem;"><div class="loader"></div></div>
+      <div class="value-box" id="socialMentions">(Social insights will appear here)</div>
+      <div class="value-box" id="gapAnalysis" style="margin-top:1rem;">(Gap analysis will appear here)</div>
+    </div>
+
+    <div style="margin-top:2rem; text-align:center;">
+      <button id="runAgentBtn" style="padding:1rem 2rem; font-size:1.1rem; background:#28a745; color:white; border:none; border-radius:8px; cursor:pointer;">Run Full GEO Research</button>
+    </div>
+  </div>
+
+<script>
+const params = new URLSearchParams(window.location.search);
+const brand = decodeURIComponent(params.get("brand"));
+const promptText = decodeURIComponent(params.get("prompt"));
+
+document.getElementById("brand").innerText = brand;
+document.getElementById("prompt").innerText = promptText;
+
+document.getElementById("runAgentBtn").addEventListener("click", async () => {
+  document.getElementById("statusBox").style.display = "block";
+  document.getElementById("statusBox").innerText = "Running GEO workflow…";
+  document.getElementById("spinner").style.display = "block";
+  document.getElementById("engineSpinner").style.display = "block";
+  document.getElementById("compSpinner").style.display = "block";
+  document.getElementById("socialSpinner").style.display = "block";
+
+  if (!window.chatgpt?.agent) {
+    document.getElementById("statusBox").innerText = "Agent not available.";
+    return;
+  }
+
+  await window.chatgpt.agent.start({
+    instructions: `You are an Atlas Browser Agent...`,
+    onResult: (result) => {
+      document.getElementById("spinner").style.display = "none";
+      document.getElementById("engineSpinner").style.display = "none";
+      document.getElementById("compSpinner").style.display = "none";
+      document.getElementById("socialSpinner").style.display = "none";
+      document.getElementById("statusBox").style.display = "none";
+
+      document.getElementById("exportBtn").style.display = "inline-block";
+      document.getElementById("runAgainBtn").style.display = "inline-block";
+
+      if (result.engines) document.getElementById("engineResults").innerText = JSON.stringify(result.engines, null, 2);
+      if (result.competitive_analysis) document.getElementById("competitiveAnalysis").innerText = JSON.stringify(result.competitive_analysis, null, 2);
+      if (result.social) document.getElementById("socialMentions").innerText = JSON.stringify(result.social, null, 2);
+      if (result.gap_analysis) document.getElementById("gapAnalysis").innerText = JSON.stringify(result.gap_analysis, null, 2);
+    }
+  });
+});
+
+// CSV Export
+document.getElementById("exportBtn").addEventListener("click", () => {
+  const data = {
+    engines: document.getElementById("engineResults").innerText,
+    competitive: document.getElementById("competitiveAnalysis").innerText,
+    social: document.getElementById("socialMentions").innerText,
+    gap: document.getElementById("gapAnalysis").innerText
+  };
+  const csv = Object.entries(data).map(([k,v]) => `${k},"${v.replace(/"/g,'""')}"`).join("\n");
+  const blob = new Blob([csv], { type: "text/csv" });
+  const link = document.createElement("a");
+  link.href = URL.createObjectURL(blob);
+  link.download = "geo_results.csv";
+  link.click();
+});
+
+// Run again
+document.getElementById("runAgainBtn").addEventListener("click", () => {
+  window.location.href = `results.html?brand=${encodeURIComponent(brand)}&prompt=${encodeURIComponent(promptText)}`;
+});
+</script>
+
+</body>
+</html>
